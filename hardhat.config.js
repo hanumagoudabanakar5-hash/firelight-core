@@ -6,6 +6,17 @@ require('hardhat-contract-sizer')
 require('solidity-coverage')
 const { removeConsoleLog } = require('hardhat-preprocessor')
 
+const custom_tasks = require('./tasks/index.js')
+for (const t of custom_tasks) {
+  const new_task = task(t.name, t.description)
+  for (const p of t.params || [])
+    if (p.default || p.default === 0)
+      new_task.addOptionalParam(p.name, p.description, p.default)
+    else
+      new_task.addParam(p.name, p.description)
+  new_task.setAction(t.action)
+}
+
 const accounts = [DEPLOYMENT_ACCOUNT_KEY, ...EXECUTION_KEYS, ...EXTRA_KEYS].map(k => `0x${ k }`)
 
 const forking = {
@@ -52,7 +63,19 @@ module.exports = {
     }
   },
   etherscan: {
-    apiKey: ETHERSCAN_API_KEY
+    apiKey: {
+      flare: ETHERSCAN_API_KEY
+    },
+    customChains: [
+      {
+        network: "flare",
+        chainId: 14,
+        urls: {
+          apiURL: "https://api.routescan.io/v2/network/mainnet/evm/14/etherscan/api",
+          browserURL: "https://flarescan.com/"
+        }
+      }
+    ]
   },
   solidity: {
     compilers: [
