@@ -163,3 +163,45 @@ unaware. Only fix is raising the limit again.
 ## Recommended Fix
 Add check in updateDepositLimit():
     if (newLimit < totalAssets()) revert InvalidDepositLimit();
+
+---
+
+# F-13: maxWithdraw() Overstates Withdrawable Amount
+
+## Severity
+Low-Medium (ERC4626 standard violation)
+
+## Location
+contracts/FirelightVault.sol — maxWithdraw(), line 356
+
+## Description
+maxWithdraw() uses OpenZeppelin's _convertToAssets() which
+internally calls super.totalAssets() — the FULL vault balance
+including pendingWithdrawAssets. But the actual withdraw()
+function uses totalAssets() which EXCLUDES pendingWithdrawAssets.
+
+This causes maxWithdraw() to overstate the withdrawable amount.
+According to ERC4626 standard, maxWithdraw() MUST return the
+maximum amount that withdraw() would not revert for. This
+violation breaks integrations and aggregators that rely on
+maxWithdraw() for accurate calculations.
+
+## Impact
+- ERC4626 standard violation
+- DeFi integrations that call maxWithdraw() get wrong values
+- Aggregators and routers may fail or lose funds
+- Users see incorrect maximum withdrawal amounts
+
+## Root Cause
+Wrong conversion function used:
+    return _convertToAssets(balanceOf(owner), Math.Rounding.Floor);
+Should be:
+    return _convertToAssetsTotals(
+        balanceOf(owner),
+        totalSupply(),
+        totalAssets(),
+        Math.Rounding.Floor
+    );
+
+## Recommended Fix
+Replace _convertToAssets with _convertToAssetsTotals in maxWithdraw()
